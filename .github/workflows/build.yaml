@@ -1,0 +1,35 @@
+name: Build WAplug APK
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show repo files
+        run: ls -la && find . -maxdepth 3 -not -path './.git/*' | head -60
+      - name: Unzip project.zip if it was uploaded as is
+        run: |
+          if [ -f project.zip ]; then mkdir -p _proj && unzip -o project.zip -d _proj; fi
+      - name: Find project dir
+        id: p
+        run: |
+          S=$(find . -name settings.gradle.kts -not -path './.git/*' | head -1)
+          if [ -z "$S" ]; then echo "settings.gradle.kts NOT FOUND"; exit 1; fi
+          echo "dir=$(dirname "$S")" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Build debug APK
+        working-directory: ${{ steps.p.outputs.dir }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WAplug-apk
+          path: ${{ steps.p.outputs.dir }}/app/build/outputs/apk/debug/*.apk
